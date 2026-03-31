@@ -13,7 +13,15 @@
       "backgroundColor": "#1D9E75"
     },
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "bundleIdentifier": "com.clayworthpharmacy.medroute",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSCameraUsageDescription": "MedRoute uses your camera to scan medication barcodes and photograph delivery manifests.",
+        "NSLocationWhenInUseUsageDescription": "MedRoute uses your location to track deliveries and confirm delivery addresses.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "MedRoute uses your location in the background to track delivery routes.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -21,10 +29,22 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "backgroundColor": "#1D9E75"
       },
-      "package": "com.rotay11.medroutefresh"
+      "package": "com.rotay11.medroutefresh",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "plugins": [
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-camera",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "MedRoute needs access to your photos to upload delivery manifests.",
+          "cameraPermission": "MedRoute needs camera access to scan barcodes and photograph manifests."
+        }
+      ]
     ],
     "extra": {
       "eas": {

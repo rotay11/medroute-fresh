@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl, Alert, Platform } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
+import { useFocusEffect } from '@react-navigation/native';
 import api from '../config/api';
 
 export default function HomeScreen({ navigation }) {
@@ -32,6 +33,7 @@ export default function HomeScreen({ navigation }) {
   }, []);
 
   useEffect(() => { loadRoute(); }, [loadRoute]);
+  useFocusEffect(useCallback(() => { loadRoute(); }, [loadRoute]));
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);

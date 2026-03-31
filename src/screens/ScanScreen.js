@@ -50,6 +50,7 @@ export default function ScanScreen({ navigation, route }) {
       const newItems = [...scannedItems, data.package];
       setScannedItems(newItems);
       setFlashMsg({ type: 'success', text: 'Scanned: ' + rxId });
+      if (navigation.getParent()) { navigation.getParent().setParams({ routeUpdated: Date.now() }); }
       if (data.bundleProgress) {
         setTotal(data.bundleProgress.total);
         setScannedCount(data.bundleProgress.scanned);

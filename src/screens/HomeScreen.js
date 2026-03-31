@@ -21,10 +21,10 @@ export default function HomeScreen({ navigation }) {
   const loadRoute = useCallback(async () => {
     try {
       const [routeRes, statsRes] = await Promise.all([
-        api.get('/api/bundle/route'),
+        api.get('/api/scan/route'),
         api.get('/api/driver/stats'),
       ]);
-      setRoute(routeRes.data.route || []);
+      setRoute(routeRes.data.bundles || routeRes.data.route || []);
       setStats(statsRes.data || {});
     } catch (err) {
       console.log('Load route error:', err.message);

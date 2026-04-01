@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl, Alert, Platform } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl, Alert, Platform, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useFocusEffect } from '@react-navigation/native';
@@ -33,7 +33,10 @@ export default function HomeScreen({ navigation }) {
   }, []);
 
   useEffect(() => { loadRoute(); }, [loadRoute]);
-  useFocusEffect(useCallback(() => { loadRoute(); }, [loadRoute]));
+  useFocusEffect(useCallback(() => {
+    const lastUpdate = route.params?.routeUpdated;
+    if (lastUpdate) { loadRoute(); }
+  }, [route.params?.routeUpdated]));
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -67,6 +70,17 @@ export default function HomeScreen({ navigation }) {
             <Text style={styles.signOutText}>{t('signOut')}</Text>
           </TouchableOpacity>
         </View>
+        <View style={styles.driverHeader}>
+          <Text style={styles.driverGreeting}>Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'},</Text>
+          <Text style={styles.driverNameLarge}>{driver?.firstName} {driver?.lastName}</Text>
+          <Text style={styles.driverZone}>{driver?.zone || 'No zone assigned'}</Text>
+        </View>
+        {loading && (
+          <View style={{backgroundColor:'rgba(29,158,117,0.1)',padding:8,alignItems:'center',flexDirection:'row',justifyContent:'center',gap:8}}>
+            <ActivityIndicator size="small" color="#1D9E75" />
+            <Text style={{fontSize:12,color:'#1D9E75',fontWeight:'600'}}>Updating route...</Text>
+          </View>
+        )}
         <View style={styles.statsRow}>
           <View style={styles.statBox}><Text style={styles.statNum}>{route.length}</Text><Text style={styles.statLabel}>{t('todayStops')}</Text></View>
           <View style={styles.statBox}><Text style={styles.statNum}>{completed}</Text><Text style={styles.statLabel}>{t('delivered')}</Text></View>
@@ -129,6 +143,10 @@ const styles = StyleSheet.create({
   driverId:     { fontSize:10, color:'rgba(255,255,255,0.7)' },
   signOutBtn:   { padding:6 },
   signOutText:  { fontSize:11, color:'rgba(255,255,255,0.8)' },
+  driverHeader:    { backgroundColor:'#1D9E75', paddingHorizontal:20, paddingBottom:16, paddingTop:4 },
+  driverGreeting:  { fontSize:13, color:'rgba(255,255,255,0.75)' },
+  driverNameLarge: { fontSize:20, fontWeight:'700', color:'#fff', marginTop:2 },
+  driverZone:      { fontSize:12, color:'rgba(255,255,255,0.75)', marginTop:2 },
   statsRow:     { flexDirection:'row', gap:8 },
   statBox:      { flex:1, backgroundColor:'rgba(255,255,255,0.15)', borderRadius:8, padding:10, alignItems:'center' },
   statNum:      { fontSize:20, fontWeight:'600', color:'#fff' },

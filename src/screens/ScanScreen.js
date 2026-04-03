@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Vibration, Linking } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Vibration, Linking, Platform } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
 import { useTranslation } from 'react-i18next';
@@ -82,10 +82,8 @@ export default function ScanScreen({ navigation, route }) {
 
   function handleNavigate() {
     const addr = encodeURIComponent(bundle?.address || '');
-    const lat = bundle?.addressLat;
-    const lng = bundle?.addressLng;
-    if (lat && lng && lat !== 0 && lng !== 0) {
-      Linking.openURL('maps://?daddr=' + addr + '&ll=' + lat + ',' + lng)
+    if (Platform.OS === 'android') {
+      Linking.openURL('google.navigation:q=' + addr)
         .catch(() => Linking.openURL('https://www.google.com/maps/dir/?api=1&destination=' + addr + '&travelmode=driving'));
     } else {
       Linking.openURL('maps://?daddr=' + addr)

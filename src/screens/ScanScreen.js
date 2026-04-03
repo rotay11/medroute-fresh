@@ -82,10 +82,15 @@ export default function ScanScreen({ navigation, route }) {
 
   function handleNavigate() {
     const addr = encodeURIComponent(bundle?.address || '');
-    const lat = bundle?.addressLat || 0;
-    const lng = bundle?.addressLng || 0;
-    Linking.openURL('maps://?daddr=' + addr + '&ll=' + lat + ',' + lng)
-      .catch(() => Linking.openURL('https://www.google.com/maps/dir/?api=1&destination=' + addr + '&travelmode=driving'));
+    const lat = bundle?.addressLat;
+    const lng = bundle?.addressLng;
+    if (lat && lng && lat !== 0 && lng !== 0) {
+      Linking.openURL('maps://?daddr=' + addr + '&ll=' + lat + ',' + lng)
+        .catch(() => Linking.openURL('https://www.google.com/maps/dir/?api=1&destination=' + addr + '&travelmode=driving'));
+    } else {
+      Linking.openURL('maps://?daddr=' + addr)
+        .catch(() => Linking.openURL('https://www.google.com/maps/dir/?api=1&destination=' + addr + '&travelmode=driving'));
+    }
   }
 
   return (

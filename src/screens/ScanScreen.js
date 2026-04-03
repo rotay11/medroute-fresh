@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Vibration, Linking, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Vibration, Linking, Platform, Alert } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
 import { useTranslation } from 'react-i18next';
@@ -81,13 +81,19 @@ export default function ScanScreen({ navigation, route }) {
   }
 
   function handleNavigate() {
-    const addr = encodeURIComponent(bundle?.address || '');
+    const address = bundle?.address || '';
+    if (!address || address === 'Unknown address') {
+      Alert.alert('No address', 'No delivery address available for this stop.');
+      return;
+    }
+    const addr = encodeURIComponent(address);
+    const googleMapsUrl = 'https://www.google.com/maps/dir/?api=1&destination=' + addr + '&travelmode=driving';
     if (Platform.OS === 'android') {
-      Linking.openURL('google.navigation:q=' + addr)
-        .catch(() => Linking.openURL('https://www.google.com/maps/dir/?api=1&destination=' + addr + '&travelmode=driving'));
+      Linking.openURL('geo:0,0?q=' + addr)
+        .catch(() => Linking.openURL(googleMapsUrl));
     } else {
       Linking.openURL('maps://?daddr=' + addr)
-        .catch(() => Linking.openURL('https://www.google.com/maps/dir/?api=1&destination=' + addr + '&travelmode=driving'));
+        .catch(() => Linking.openURL(googleMapsUrl));
     }
   }
 

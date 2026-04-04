@@ -23,9 +23,10 @@ export default function ScanScreen({ navigation, route }) {
 
   useEffect(() => {
     if (!permission?.granted) requestPermission();
-    Location.requestForegroundPermissionsAsync().then(({ status }) => {
+    Location.requestForegroundPermissionsAsync().catch(() => {}).then(result => {
+      const status = result?.status;
       if (status === 'granted') {
-        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }).then(loc => {
+        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced, timeout: 10000 }).then(loc => {
           setGpsCoords({ lat: loc.coords.latitude, lng: loc.coords.longitude });
         }).catch(() => {});
       }

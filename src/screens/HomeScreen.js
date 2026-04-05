@@ -9,6 +9,7 @@ export default function HomeScreen({ navigation }) {
   const { t } = useTranslation();
   const { driver, logout } = useAuth();
   const [route,      setRoute]      = useState([]);
+  const [loading,    setLoading]    = useState(false);
   const [stats,      setStats]      = useState({});
   const [refreshing, setRefreshing] = useState(false);
 

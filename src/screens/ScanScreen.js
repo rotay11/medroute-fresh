@@ -177,11 +177,9 @@ export default function ScanScreen({ navigation, route }) {
             </View>
           );
         })}
-        {allScanned && (
-          <TouchableOpacity style={styles.navMapBtn} onPress={handleNavigate}>
-            <Text style={styles.navMapBtnText}>Navigate to delivery address</Text>
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity style={styles.navMapBtn} onPress={handleNavigate}>
+          <Text style={styles.navMapBtnText}>Navigate to delivery address</Text>
+        </TouchableOpacity>
         <TouchableOpacity
           style={[styles.confirmBtn, !allScanned && styles.confirmBtnDisabled]}
           disabled={!allScanned}

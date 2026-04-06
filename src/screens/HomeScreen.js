@@ -112,7 +112,8 @@ export default function HomeScreen({ navigation }) {
           <Text style={styles.sectionLabel}>{t('todayRoute')}</Text>
           {route.length === 0 && <Text style={styles.noStops}>{t('noStops')}</Text>}
           {route.map((bundle) => (
-            <TouchableOpacity key={bundle.id} style={styles.stopRow} onPress={() => navigation.navigate('Scan', { bundle })}>
+            <View key={bundle.id} style={styles.stopRow}>
+              <TouchableOpacity style={{flexDirection:"row",flex:1,alignItems:"center"}} onPress={() => navigation.navigate("Scan", { bundle })}>
               <View style={[styles.stopNum, bundle.status === 'DELIVERED' && styles.stopNumDone]}>
                 <Text style={styles.stopNumText}>{bundle.status === 'DELIVERED' ? '✓' : bundle.stopOrder}</Text>
               </View>
@@ -124,7 +125,13 @@ export default function HomeScreen({ navigation }) {
                 {bundle.status === 'DELIVERED' ? t('done') : bundle.eta ? new Date(bundle.eta).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }) : '--'}
               </Text>
               {bundle.hasUrgent && <View style={styles.urgentDot} />}
-            </TouchableOpacity>
+              </TouchableOpacity>
+              {bundle.status !== "DELIVERED" && (
+                <TouchableOpacity style={{backgroundColor:"#1D9E75",borderRadius:6,padding:6,marginLeft:4}} onPress={() => { const addr = encodeURIComponent(bundle.address || ""); const {Linking, Platform} = require("react-native"); Platform.OS === "android" ? Linking.openURL("geo:0,0?q=" + addr).catch(() => Linking.openURL("https://www.google.com/maps/dir/?api=1&destination=" + addr)) : Linking.openURL("maps://?daddr=" + addr).catch(() => Linking.openURL("https://www.google.com/maps/dir/?api=1&destination=" + addr)); }}>
+                  <Text style={{color:"#fff",fontSize:11,fontWeight:"600"}}>Nav</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           ))}
         </View>
       </View>

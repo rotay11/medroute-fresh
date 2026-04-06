@@ -98,7 +98,15 @@ export default function HomeScreen({ navigation }) {
               <Text style={styles.nextPatient}>{nextStop.packages?.[0]?.patient?.firstName} {nextStop.packages?.[0]?.patient?.lastName} · {nextStop.packages?.length} {t('medications')}</Text>
               <View style={styles.nextMeta}>
                 <Text style={styles.etaText}>{t('eta')} {nextStop.eta ? new Date(nextStop.eta).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }) : '--'}</Text>
-                <TouchableOpacity style={styles.navBtn} onPress={() => navigation.navigate('Scan', { bundle: nextStop })}>
+                <TouchableOpacity style={styles.navBtn} onPress={() => {
+                  const addr = encodeURIComponent(nextStop?.address || '');
+                  const {Linking, Platform} = require('react-native');
+                  if (Platform.OS === 'android') {
+                    Linking.openURL('geo:0,0?q=' + addr).catch(() => Linking.openURL('https://www.google.com/maps/dir/?api=1&destination=' + addr));
+                  } else {
+                    Linking.openURL('maps://?daddr=' + addr).catch(() => Linking.openURL('https://www.google.com/maps/dir/?api=1&destination=' + addr));
+                  }
+                }}>
                   <Text style={styles.navBtnText}>{t('navigate')}</Text>
                 </TouchableOpacity>
               </View>

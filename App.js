@@ -10,6 +10,7 @@ import HomeScreen from './src/screens/HomeScreen';
 import ScanScreen from './src/screens/ScanScreen';
 import DeliveryScreen from './src/screens/DeliveryScreen';
 import SuccessScreen from './src/screens/SuccessScreen';
+import ChangePasswordScreen from './src/screens/ChangePasswordScreen';
 
 const Stack = createStackNavigator();
 
@@ -32,6 +33,7 @@ function AppNavigator() {
           <Stack.Screen name="Scan" component={ScanScreen} />
           <Stack.Screen name="Delivery" component={DeliveryScreen} />
           <Stack.Screen name="Success" component={SuccessScreen} />
+          <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
         </>
       )}
     </Stack.Navigator>

@@ -10,6 +10,8 @@ export default function HomeScreen({ navigation }) {
   const { driver, logout } = useAuth();
   const [route,      setRoute]      = useState([]);
   const [loading,    setLoading]    = useState(false);
+  const [sortMode,   setSortMode]   = useState('default');
+  const [driverLoc,  setDriverLoc]  = useState(null);
   const [stats,      setStats]      = useState({});
   const [refreshing, setRefreshing] = useState(false);
 
@@ -52,7 +54,33 @@ export default function HomeScreen({ navigation }) {
     ]);
   };
 
-  const nextStop  = route.find(b => b.status !== 'DELIVERED');
+  // Calculate distance between two coordinates
+  function calcDistance(lat1, lon1, lat2, lon2) {
+    const R = 3959; // miles
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  }
+
+  // Get sorted route based on sort mode
+  const sortedRoute = React.useMemo(() => {
+    if (sortMode === 'default' || !driverLoc) return route;
+    const undelivered = route.filter(b => b.status !== 'DELIVERED');
+    const delivered = route.filter(b => b.status === 'DELIVERED');
+    const withDist = undelivered.map(b => ({
+      ...b,
+      _dist: (b.addressLat && b.addressLng)
+        ? calcDistance(driverLoc.lat, driverLoc.lng, b.addressLat, b.addressLng)
+        : 999
+    }));
+    withDist.sort((a, b) => sortMode === 'nearest' ? a._dist - b._dist : b._dist - a._dist);
+    return [...withDist, ...delivered];
+  }, [route, sortMode, driverLoc]);
+
+  const nextStop  = sortedRoute.find(b => b.status !== 'DELIVERED');
   const completed = route.filter(b => b.status === 'DELIVERED').length;
 
   return (
@@ -118,8 +146,23 @@ export default function HomeScreen({ navigation }) {
         </TouchableOpacity>
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>{t('todayRoute')}</Text>
+          <View style={{flexDirection:'row',gap:8,marginBottom:12}}>
+            {[['default','Default'],['nearest','Nearest First'],['farthest','Farthest First']].map(([mode,label]) => (
+              <TouchableOpacity key={mode} onPress={() => {
+                setSortMode(mode);
+                if (mode !== 'default') {
+                  const Location = require('expo-location');
+                  Location.getCurrentPositionAsync({accuracy: Location.Accuracy.Balanced}).then(loc => {
+                    setDriverLoc({lat: loc.coords.latitude, lng: loc.coords.longitude});
+                  }).catch(() => {});
+                }
+              }} style={{paddingHorizontal:10,paddingVertical:5,borderRadius:6,backgroundColor:sortMode===mode?'#1D9E75':'#f0f0f0'}}>
+                <Text style={{fontSize:10,fontWeight:'600',color:sortMode===mode?'#fff':'#666'}}>{label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
           {route.length === 0 && <Text style={styles.noStops}>{t('noStops')}</Text>}
-          {route.map((bundle) => (
+          {sortedRoute.map((bundle) => (
             <View key={bundle.id} style={styles.stopRow}>
               <TouchableOpacity style={{flexDirection:"row",flex:1,alignItems:"center"}} onPress={() => navigation.navigate("Scan", { bundle })}>
               <View style={[styles.stopNum, bundle.status === 'DELIVERED' && styles.stopNumDone]}>

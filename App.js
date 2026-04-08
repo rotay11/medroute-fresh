@@ -29,11 +29,17 @@ function AppNavigator() {
         <Stack.Screen name="Login" component={LoginScreen} />
       ) : (
         <>
-          <Stack.Screen name="Home" component={HomeScreen} />
-          <Stack.Screen name="Scan" component={ScanScreen} />
-          <Stack.Screen name="Delivery" component={DeliveryScreen} />
-          <Stack.Screen name="Success" component={SuccessScreen} />
-          <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
+          {driver.forcePasswordChange ? (
+            <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
+          ) : (
+            <>
+              <Stack.Screen name="Home" component={HomeScreen} />
+              <Stack.Screen name="Scan" component={ScanScreen} />
+              <Stack.Screen name="Delivery" component={DeliveryScreen} />
+              <Stack.Screen name="Success" component={SuccessScreen} />
+              <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
+            </>
+          )}
         </>
       )}
     </Stack.Navigator>

@@ -4,7 +4,7 @@ import { initReactI18next } from 'react-i18next';
 const resources = {
   en: {
     translation: {
-      appName: 'MedRoute Driver',
+      appName: 'MedRouteRx Driver',
       signIn: 'Sign in to start your shift',
       driverIdOrEmail: 'Driver ID or email',
       password: 'Password',
@@ -64,7 +64,7 @@ const resources = {
   },
   es: {
     translation: {
-      appName: 'MedRoute Conductor',
+      appName: 'MedRouteRx Conductor',
       signIn: 'Inicia sesión para comenzar tu turno',
       driverIdOrEmail: 'ID de conductor o correo',
       password: 'Contraseña',

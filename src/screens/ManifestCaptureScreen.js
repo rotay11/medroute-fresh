@@ -12,7 +12,7 @@ export default function ManifestCaptureScreen({ rxId, onSuccess, onCancel }) {
   const [parsedData, setParsedData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
-    firstName: '', lastName: '', address: '', phone: '', medication: '', dob: ''
+    firstName: '', lastName: '', address: '', phone: '', medication: '', dob: '', medications: []
   });
 
   async function handleTakePhoto() {
@@ -38,13 +38,16 @@ export default function ManifestCaptureScreen({ rxId, onSuccess, onCancel }) {
       });
       const d = data.data;
       setParsedData(d);
+      const fullAddress = d.address ? d.address + (d.city ? ', ' + d.city : '') + (d.state ? ', ' + d.state : '') + (d.zip ? ' ' + d.zip : '') : '';
+      const meds = d.medications && d.medications.length > 0 ? d.medications : [{ rxNumber: d.rxNumber, medication: d.medication, quantity: d.quantity }];
       setForm({
         firstName: d.firstName || '',
         lastName: d.lastName || '',
-        address: d.address ? d.address + (d.city ? ', ' + d.city : '') + (d.state ? ', ' + d.state : '') + (d.zip ? ' ' + d.zip : '') : '',
+        address: fullAddress,
         phone: d.phone || '',
-        medication: d.medication || '',
-        dob: ''
+        medication: meds.map(m => m.medication).filter(Boolean).join(', '),
+        dob: '',
+        medications: meds
       });
       setStep('confirm');
     } catch (err) {
@@ -66,7 +69,7 @@ export default function ManifestCaptureScreen({ rxId, onSuccess, onCancel }) {
         lastName: form.lastName,
         address: form.address,
         phone: form.phone,
-        medication: form.medication,
+        medications: form.medications && form.medications.length > 0 ? form.medications : [{ rxNumber: rxId, medication: form.medication }],
         rxNumber: rxId,
         dob: form.dob || null,
       });

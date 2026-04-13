@@ -147,8 +147,19 @@ export default function ManifestCaptureScreen({ rxId, onSuccess, onCancel }) {
               <TextInput style={styles.input} value={form.phone} onChangeText={v => update('phone', v)} placeholder="(555) 000-0000" keyboardType="phone-pad" />
             </View>
             <View style={styles.field}>
-              <Text style={styles.label}>Medication</Text>
-              <TextInput style={styles.input} value={form.medication} onChangeText={v => update('medication', v)} placeholder="Medication name" />
+              <Text style={styles.label}>Medication(s)</Text>
+              {form.medications && form.medications.length > 1 ? (
+                <View style={{backgroundColor:'#f0faf6',borderRadius:8,padding:10,borderWidth:1,borderColor:'#1D9E75'}}>
+                  {form.medications.map((m, i) => (
+                    <Text key={i} style={{fontSize:13,color:'#333',marginBottom:4}}>
+                      {'•'} {m.rxNumber} — {m.medication}
+                    </Text>
+                  ))}
+                  <Text style={{fontSize:11,color:'#1D9E75',marginTop:4,fontWeight:'600'}}>{form.medications.length} medications detected</Text>
+                </View>
+              ) : (
+                <TextInput style={styles.input} value={form.medication} onChangeText={v => update('medication', v)} placeholder="Medication name" />
+              )}
             </View>
             <View style={styles.field}>
               <Text style={styles.label}>Date of birth (optional — for portal access)</Text>

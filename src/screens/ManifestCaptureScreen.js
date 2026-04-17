@@ -14,6 +14,7 @@ export default function ManifestCaptureScreen({ rxId, onSuccess, onCancel }) {
   const [form, setForm] = useState({
     firstName: '', lastName: '', address: '', phone: '', medication: '', dob: '', medications: []
   });
+  const [pageCount, setPageCount] = useState(0);
 
   async function handleTakePhoto() {
     const result = await ImagePicker.launchCameraAsync({
@@ -38,16 +39,22 @@ export default function ManifestCaptureScreen({ rxId, onSuccess, onCancel }) {
       });
       const d = data.data;
       setParsedData(d);
-      const fullAddress = d.address ? d.address + (d.city ? ', ' + d.city : '') + (d.state ? ', ' + d.state : '') + (d.zip ? ' ' + d.zip : '') : '';
-      const meds = d.medications && d.medications.length > 0 ? d.medications : [{ rxNumber: d.rxNumber, medication: d.medication, quantity: d.quantity }];
-      setForm({
-        firstName: d.firstName || '',
-        lastName: d.lastName || '',
-        address: fullAddress,
-        phone: d.phone || '',
-        medication: meds.map(m => m.medication).filter(Boolean).join(', '),
-        dob: '',
-        medications: meds
+      const newMeds = d.medications && d.medications.length > 0 ? d.medications : [{ rxNumber: d.rxNumber, medication: d.medication, quantity: d.quantity }];
+      setPageCount(prev => prev + 1);
+      setForm(prev => {
+        const existingRxIds = prev.medications.map(m => m.rxNumber);
+        const uniqueNewMeds = newMeds.filter(m => !existingRxIds.includes(m.rxNumber));
+        const allMeds = [...prev.medications, ...uniqueNewMeds];
+        const fullAddress = prev.address || (d.address ? d.address + (d.city ? ', ' + d.city : '') + (d.state ? ', ' + d.state : '') + (d.zip ? ' ' + d.zip : '') : '');
+        return {
+          firstName: prev.firstName || d.firstName || '',
+          lastName: prev.lastName || d.lastName || '',
+          address: fullAddress,
+          phone: prev.phone || d.phone || '',
+          medication: allMeds.map(m => m.medication).filter(Boolean).join(', '),
+          dob: prev.dob || '',
+          medications: allMeds
+        };
       });
       setStep('confirm');
     } catch (err) {
@@ -113,7 +120,7 @@ export default function ManifestCaptureScreen({ rxId, onSuccess, onCancel }) {
         {step === 'parsing' && (
           <View style={styles.loadingBox}>
             <ActivityIndicator size="large" color="#1D9E75" />
-            <Text style={styles.loadingText}>Reading manifest...</Text>
+            <Text style={styles.loadingText}>{pageCount > 0 ? "Reading page " + (pageCount + 1) + "..." : "Reading manifest..."}</Text>
           </View>
         )}
 
@@ -155,7 +162,7 @@ export default function ManifestCaptureScreen({ rxId, onSuccess, onCancel }) {
                       {'•'} {m.rxNumber} — {m.medication}
                     </Text>
                   ))}
-                  <Text style={{fontSize:11,color:'#1D9E75',marginTop:4,fontWeight:'600'}}>{form.medications.length} medications detected</Text>
+                  <Text style={{fontSize:11,color:'#1D9E75',marginTop:4,fontWeight:'600'}}>{form.medications.length} medications detected across {pageCount} page{pageCount !== 1 ? 's' : ''}</Text>
                 </View>
               ) : (
                 <TextInput style={styles.input} value={form.medication} onChangeText={v => update('medication', v)} placeholder="Medication name" />
@@ -165,12 +172,17 @@ export default function ManifestCaptureScreen({ rxId, onSuccess, onCancel }) {
               <Text style={styles.label}>Date of birth (optional — for portal access)</Text>
               <TextInput style={styles.input} value={form.dob} onChangeText={v => update('dob', v)} placeholder="YYYY-MM-DD" />
             </View>
+            {step === 'confirm' && (
+              <TouchableOpacity style={styles.addPageBtn} onPress={() => { setImageUri(null); setStep('capture'); }}>
+                <Text style={styles.addPageBtnText}>📷  Add another page</Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity style={[styles.confirmBtn, loading && { opacity: 0.6 }]} onPress={handleConfirm} disabled={loading}>
-              {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.confirmBtnText}>Add patient and create delivery</Text>}
+              {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.confirmBtnText}>Confirm and create delivery</Text>}
             </TouchableOpacity>
             {step === 'confirm' && (
-              <TouchableOpacity style={styles.retakeBtn} onPress={() => { setImageUri(null); setStep('capture'); }}>
-                <Text style={styles.retakeBtnText}>Retake photo</Text>
+              <TouchableOpacity style={styles.retakeBtn} onPress={() => { setImageUri(null); setImageBase64(null); setForm({ firstName: '', lastName: '', address: '', phone: '', medication: '', dob: '', medications: [] }); setPageCount(0); setStep('capture'); }}>
+                <Text style={styles.retakeBtnText}>Start over</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -209,4 +221,6 @@ const styles = StyleSheet.create({
   confirmBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
   retakeBtn:      { borderWidth: 1, borderColor: '#ddd', borderRadius: 10, padding: 12, alignItems: 'center', marginTop: 8 },
   retakeBtnText:  { color: '#666', fontSize: 13 },
+  addPageBtn:     { backgroundColor: '#0C447C', borderRadius: 10, padding: 14, alignItems: 'center', marginTop: 8, marginBottom: 4 },
+  addPageBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
 });

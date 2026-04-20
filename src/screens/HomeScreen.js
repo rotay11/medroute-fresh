@@ -11,6 +11,7 @@ export default function HomeScreen({ navigation }) {
   const [route,      setRoute]      = useState([]);
   const [loading,    setLoading]    = useState(false);
   const [sortMode,   setSortMode]   = useState('default');
+  const [startPoint, setStartPoint] = useState({ lat: 37.6879, lng: -122.0561 });
   const [driverLoc,  setDriverLoc]  = useState(null);
   const [stats,      setStats]      = useState({});
   const [refreshing, setRefreshing] = useState(false);
@@ -29,6 +30,7 @@ export default function HomeScreen({ navigation }) {
         api.get('/api/driver/stats'),
       ]);
       setRoute(routeRes.data.bundles || routeRes.data.route || []);
+      if (routeRes.data.startPoint) setStartPoint(routeRes.data.startPoint);
       setStats(statsRes.data || {});
     } catch (err) {
       console.log('Load route error:', err.message);
@@ -67,18 +69,20 @@ export default function HomeScreen({ navigation }) {
 
   // Get sorted route based on sort mode
   const sortedRoute = React.useMemo(() => {
-    if (sortMode === 'default' || !driverLoc) return route;
+    if (sortMode === 'default') return route;
     const undelivered = route.filter(b => b.status !== 'DELIVERED');
     const delivered = route.filter(b => b.status === 'DELIVERED');
+    // Use driver GPS if available, otherwise pharmacy starting point
+    const origin = driverLoc ? { lat: driverLoc.lat, lng: driverLoc.lng } : startPoint;
     const withDist = undelivered.map(b => ({
       ...b,
       _dist: (b.addressLat && b.addressLng)
-        ? calcDistance(driverLoc.lat, driverLoc.lng, b.addressLat, b.addressLng)
+        ? calcDistance(origin.lat, origin.lng, b.addressLat, b.addressLng)
         : 999
     }));
     withDist.sort((a, b) => sortMode === 'nearest' ? a._dist - b._dist : b._dist - a._dist);
     return [...withDist, ...delivered];
-  }, [route, sortMode, driverLoc]);
+  }, [route, sortMode, driverLoc, startPoint]);
 
   const nextStop  = sortedRoute.find(b => b.status !== 'DELIVERED');
   const completed = route.filter(b => b.status === 'DELIVERED').length;

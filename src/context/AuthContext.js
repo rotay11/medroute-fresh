@@ -21,6 +21,7 @@ export function AuthProvider({ children }) {
         const parsed = JSON.parse(driverData);
         setDriver(parsed);
         await i18n.changeLanguage(parsed.language?.toLowerCase() || 'en');
+        if (parsed.role === 'DRIVER') startGPSTracking();
       }
     } catch {}
     finally { setLoading(false); }

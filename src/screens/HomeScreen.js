@@ -12,6 +12,10 @@ export default function HomeScreen({ navigation }) {
   const [loading,    setLoading]    = useState(false);
   const [sortMode,   setSortMode]   = useState('default');
   const [startPoint, setStartPoint] = useState({ lat: 37.6879, lng: -122.0561 });
+  const [urgentModal, setUrgentModal] = useState(null);
+  const [urgentReason, setUrgentReason] = useState('');
+  const [urgentNote, setUrgentNote] = useState('');
+  const [reordering, setReordering] = useState(false);
   const [driverLoc,  setDriverLoc]  = useState(null);
   const [stats,      setStats]      = useState({});
   const [refreshing, setRefreshing] = useState(false);
@@ -85,6 +89,44 @@ export default function HomeScreen({ navigation }) {
   }, [route, sortMode, driverLoc, startPoint]);
 
   const nextStop  = sortedRoute.find(b => b.status !== 'DELIVERED');
+
+  async function markUrgent() {
+    if (!urgentReason) { Alert.alert('Error', 'Please select a reason'); return; }
+    if (urgentReason === 'Other' && (!urgentNote || urgentNote.trim().length < 3)) {
+      Alert.alert('Error', 'Please provide an explanation for Other');
+      return;
+    }
+    try {
+      await api.post('/api/bundle/' + urgentModal.id + '/urgent', { reason: urgentReason, note: urgentNote });
+      setUrgentModal(null);
+      setUrgentReason('');
+      setUrgentNote('');
+      loadRoute();
+      Alert.alert('Urgent Marked', 'Stop has been prioritized. Dispatcher and patient notified.');
+    } catch (err) {
+      Alert.alert('Error', err.response?.data?.error || 'Could not mark urgent');
+    }
+  }
+
+  async function removeUrgent(bundleId) {
+    try {
+      await api.delete('/api/bundle/' + bundleId + '/urgent');
+      loadRoute();
+    } catch (err) { Alert.alert('Error', 'Could not remove urgent'); }
+  }
+
+  async function moveStop(bundleId, direction) {
+    if (reordering) return;
+    setReordering(true);
+    try {
+      await api.post('/api/bundle/reorder', { bundleId, direction });
+      await loadRoute();
+    } catch (err) {
+      Alert.alert('Error', err.response?.data?.error || 'Could not reorder');
+    }
+    setReordering(false);
+  }
+
   const completed = route.filter(b => b.status === 'DELIVERED').length;
 
   return (
@@ -166,30 +208,101 @@ export default function HomeScreen({ navigation }) {
             ))}
           </View>
           {route.length === 0 && <Text style={styles.noStops}>{t('noStops')}</Text>}
-          {sortedRoute.map((bundle) => (
-            <View key={bundle.id} style={styles.stopRow}>
-              <TouchableOpacity style={{flexDirection:"row",flex:1,alignItems:"center"}} onPress={() => navigation.navigate("Scan", { bundle })}>
-              <View style={[styles.stopNum, bundle.status === 'DELIVERED' && styles.stopNumDone]}>
-                <Text style={styles.stopNumText}>{bundle.status === 'DELIVERED' ? '✓' : bundle.stopOrder}</Text>
-              </View>
-              <View style={styles.stopInfo}>
-                <Text style={styles.stopName}>{bundle.packages?.[0]?.patient?.firstName} {bundle.packages?.[0]?.patient?.lastName}</Text>
-                <Text style={styles.stopAddr} numberOfLines={1}>{bundle.address}</Text>
-              </View>
-              <Text style={[styles.stopEta, bundle.status === 'DELIVERED' && { color:'#1D9E75' }]}>
-                {bundle.status === 'DELIVERED' ? t('done') : bundle.eta ? new Date(bundle.eta).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }) : '--'}
-              </Text>
-              {bundle.hasUrgent && <View style={styles.urgentDot} />}
-              </TouchableOpacity>
-              {bundle.status !== "DELIVERED" && (
-                <TouchableOpacity style={{backgroundColor:"#1D9E75",borderRadius:6,padding:6,marginLeft:4}} onPress={() => { const addr = encodeURIComponent(bundle.address || ""); const {Linking, Platform} = require("react-native"); Platform.OS === "android" ? Linking.openURL("geo:0,0?q=" + addr).catch(() => Linking.openURL("https://www.google.com/maps/dir/?api=1&destination=" + addr)) : Linking.openURL("maps://?daddr=" + addr).catch(() => Linking.openURL("https://www.google.com/maps/dir/?api=1&destination=" + addr)); }}>
-                  <Text style={{color:"#fff",fontSize:11,fontWeight:"600"}}>Nav</Text>
+          {sortedRoute.map((bundle, idx) => {
+            const canMove = bundle.status !== 'DELIVERED' && bundle.status !== 'IN_TRANSIT';
+            const isFirst = idx === 0;
+            const isLast = idx === sortedRoute.length - 1;
+            return (
+            <View key={bundle.id} style={[styles.stopRow, bundle.urgent && styles.stopRowUrgent]}>
+              {bundle.urgent && (
+                <View style={styles.urgentBanner}>
+                  <Text style={styles.urgentBannerText}>⚡ URGENT — {bundle.urgentReason}</Text>
+                  {bundle.urgentNote && <Text style={styles.urgentNoteText}>{bundle.urgentNote}</Text>}
+                </View>
+              )}
+              <View style={{flexDirection:'row',alignItems:'center'}}>
+                <TouchableOpacity style={{flexDirection:"row",flex:1,alignItems:"center"}} onPress={() => navigation.navigate("Scan", { bundle })}>
+                  <View style={[styles.stopNum, bundle.status === 'DELIVERED' && styles.stopNumDone, bundle.urgent && styles.stopNumUrgent]}>
+                    <Text style={styles.stopNumText}>{bundle.status === 'DELIVERED' ? '✓' : bundle.stopOrder}</Text>
+                  </View>
+                  <View style={styles.stopInfo}>
+                    <Text style={styles.stopName}>{bundle.packages?.[0]?.patient?.firstName} {bundle.packages?.[0]?.patient?.lastName}</Text>
+                    <Text style={styles.stopAddr} numberOfLines={1}>{bundle.address}</Text>
+                  </View>
+                  <Text style={[styles.stopEta, bundle.status === 'DELIVERED' && { color:'#1D9E75' }]}>
+                    {bundle.status === 'DELIVERED' ? t('done') : bundle.eta ? new Date(bundle.eta).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }) : '--'}
+                  </Text>
                 </TouchableOpacity>
+                {canMove && (
+                  <View style={{flexDirection:'column',marginLeft:4}}>
+                    <TouchableOpacity disabled={isFirst || reordering} style={[styles.arrowBtn, isFirst && styles.arrowBtnDisabled]} onPress={() => moveStop(bundle.id, 'up')}>
+                      <Text style={styles.arrowText}>▲</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity disabled={isLast || reordering} style={[styles.arrowBtn, isLast && styles.arrowBtnDisabled]} onPress={() => moveStop(bundle.id, 'down')}>
+                      <Text style={styles.arrowText}>▼</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+                {bundle.status !== "DELIVERED" && (
+                  <TouchableOpacity style={{backgroundColor:"#1D9E75",borderRadius:6,padding:8,marginLeft:4,minWidth:44,alignItems:'center'}} onPress={() => { const addr = encodeURIComponent(bundle.address || ""); const {Linking, Platform} = require("react-native"); Platform.OS === "android" ? Linking.openURL("geo:0,0?q=" + addr).catch(() => Linking.openURL("https://www.google.com/maps/dir/?api=1&destination=" + addr)) : Linking.openURL("maps://?daddr=" + addr).catch(() => Linking.openURL("https://www.google.com/maps/dir/?api=1&destination=" + addr)); }}>
+                    <Text style={{color:"#fff",fontSize:12,fontWeight:"600"}}>Nav</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+              {bundle.status !== "DELIVERED" && (
+                <View style={{flexDirection:'row',marginTop:8,gap:8}}>
+                  {!bundle.urgent ? (
+                    <TouchableOpacity style={styles.urgentBtn} onPress={() => setUrgentModal(bundle)}>
+                      <Text style={styles.urgentBtnText}>⚡ Mark Urgent</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity style={styles.removeUrgentBtn} onPress={() => removeUrgent(bundle.id)}>
+                      <Text style={styles.removeUrgentBtnText}>Remove Urgent</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
               )}
             </View>
-          ))}
+            );
+          })}
         </View>
       </View>
+      <Modal visible={!!urgentModal} transparent animationType="fade" onRequestClose={() => setUrgentModal(null)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>⚡ Mark as Urgent</Text>
+            <Text style={{fontSize:13,color:'#666',marginBottom:8}}>
+              {urgentModal?.packages?.[0]?.patient?.firstName} {urgentModal?.packages?.[0]?.patient?.lastName}
+            </Text>
+            <Text style={styles.modalLabel}>Reason (required)</Text>
+            {['Patient transitioning', 'Dose time critical', 'Pharmacist request', 'Refrigerated item', 'STAT order', 'Other'].map(r => (
+              <TouchableOpacity key={r} style={[styles.reasonBtn, urgentReason === r && styles.reasonBtnSelected]} onPress={() => setUrgentReason(r)}>
+                <Text style={styles.reasonBtnText}>{r}</Text>
+              </TouchableOpacity>
+            ))}
+            {urgentReason === 'Other' && (
+              <>
+                <Text style={styles.modalLabel}>Explanation (required)</Text>
+                <TextInput style={styles.modalInput} multiline value={urgentNote} onChangeText={setUrgentNote} placeholder="Enter reason..." />
+              </>
+            )}
+            {urgentReason !== 'Other' && urgentReason && (
+              <>
+                <Text style={styles.modalLabel}>Additional note (optional)</Text>
+                <TextInput style={styles.modalInput} multiline value={urgentNote} onChangeText={setUrgentNote} placeholder="Optional details..." />
+              </>
+            )}
+            <View style={styles.modalBtnRow}>
+              <TouchableOpacity style={styles.modalCancelBtn} onPress={() => { setUrgentModal(null); setUrgentReason(''); setUrgentNote(''); }}>
+                <Text>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalSubmitBtn} onPress={markUrgent}>
+                <Text style={{color:'#fff',fontWeight:'700'}}>Mark Urgent</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -237,4 +350,27 @@ const styles = StyleSheet.create({
   stopEta:      { fontSize:11, fontWeight:'600', color:'#0F6E56', marginLeft:8 },
   urgentDot:    { width:8, height:8, borderRadius:4, backgroundColor:'#E24B4A', marginLeft:4 },
   noStops:      { fontSize:13, color:'#888', textAlign:'center', padding:20 },
+  stopRowUrgent: { borderLeftWidth: 4, borderLeftColor: '#E24B4A', backgroundColor: '#FFF5F5' },
+  stopNumUrgent: { backgroundColor: '#E24B4A' },
+  urgentBanner: { backgroundColor: '#E24B4A', padding: 6, borderRadius: 4, marginBottom: 8 },
+  urgentBannerText: { color: '#fff', fontSize: 11, fontWeight: '700' },
+  urgentNoteText: { color: '#fff', fontSize: 10, marginTop: 2, fontStyle: 'italic' },
+  arrowBtn: { width: 44, height: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f0f0f0', borderRadius: 4, marginVertical: 1 },
+  arrowBtnDisabled: { opacity: 0.3 },
+  arrowText: { fontSize: 10, color: '#333', fontWeight: '700' },
+  urgentBtn: { backgroundColor: '#E24B4A', padding: 8, borderRadius: 6, flex: 1, alignItems: 'center' },
+  urgentBtnText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  removeUrgentBtn: { backgroundColor: '#888', padding: 8, borderRadius: 6, flex: 1, alignItems: 'center' },
+  removeUrgentBtnText: { color: '#fff', fontSize: 12, fontWeight: '600' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
+  modalCard: { backgroundColor: '#fff', borderRadius: 12, padding: 20 },
+  modalTitle: { fontSize: 18, fontWeight: '700', marginBottom: 12 },
+  modalLabel: { fontSize: 13, fontWeight: '600', marginBottom: 6, marginTop: 10 },
+  reasonBtn: { padding: 10, borderWidth: 1, borderColor: '#ddd', borderRadius: 6, marginBottom: 6 },
+  reasonBtnSelected: { borderColor: '#E24B4A', backgroundColor: '#FFF5F5' },
+  reasonBtnText: { fontSize: 13 },
+  modalInput: { borderWidth: 1, borderColor: '#ddd', borderRadius: 6, padding: 8, fontSize: 14, minHeight: 60 },
+  modalBtnRow: { flexDirection: 'row', gap: 8, marginTop: 16 },
+  modalCancelBtn: { flex: 1, padding: 12, borderRadius: 6, borderWidth: 1, borderColor: '#ddd', alignItems: 'center' },
+  modalSubmitBtn: { flex: 1, padding: 12, borderRadius: 6, backgroundColor: '#E24B4A', alignItems: 'center' },
 });

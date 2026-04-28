@@ -16,6 +16,7 @@ export default function HomeScreen({ navigation }) {
   const [urgentReason, setUrgentReason] = useState('');
   const [urgentNote, setUrgentNote] = useState('');
   const [reordering, setReordering] = useState(false);
+  const [editMode, setEditMode] = useState(false);
   const [driverLoc,  setDriverLoc]  = useState(null);
   const [stats,      setStats]      = useState({});
   const [refreshing, setRefreshing] = useState(false);
@@ -192,7 +193,7 @@ export default function HomeScreen({ navigation }) {
         </TouchableOpacity>
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>{t('todayRoute')}</Text>
-          <View style={{flexDirection:'row',gap:8,marginBottom:12}}>
+          <View style={{flexDirection:'row',gap:8,marginBottom:12,alignItems:'center'}}>
             {[['default','Default'],['nearest','Nearest First'],['farthest','Farthest First']].map(([mode,label]) => (
               <TouchableOpacity key={mode} onPress={() => {
                 setSortMode(mode);
@@ -206,6 +207,10 @@ export default function HomeScreen({ navigation }) {
                 <Text style={{fontSize:10,fontWeight:'600',color:sortMode===mode?'#fff':'#666'}}>{label}</Text>
               </TouchableOpacity>
             ))}
+            <View style={{flex:1}} />
+            <TouchableOpacity onPress={() => setEditMode(!editMode)} style={{paddingHorizontal:12,paddingVertical:6,borderRadius:6,backgroundColor:editMode?'#E24B4A':'#0C447C'}}>
+              <Text style={{fontSize:11,fontWeight:'700',color:'#fff'}}>{editMode ? '✓ Done Editing' : '✎ Edit Route'}</Text>
+            </TouchableOpacity>
           </View>
           {route.length === 0 && <Text style={styles.noStops}>{t('noStops')}</Text>}
           {sortedRoute.map((bundle, idx) => {
@@ -221,7 +226,7 @@ export default function HomeScreen({ navigation }) {
                 </View>
               )}
               <View style={{flexDirection:'row',alignItems:'center'}}>
-                <TouchableOpacity style={{flexDirection:"row",flex:1,alignItems:"center"}} onPress={() => navigation.navigate("Scan", { bundle })}>
+                <TouchableOpacity style={{flexDirection:"row",flex:1,alignItems:"center"}} onPress={() => !editMode && navigation.navigate("Scan", { bundle })}>
                   <View style={[styles.stopNum, bundle.status === 'DELIVERED' && styles.stopNumDone, bundle.urgent && styles.stopNumUrgent]}>
                     <Text style={styles.stopNumText}>{bundle.status === 'DELIVERED' ? '✓' : bundle.stopOrder}</Text>
                   </View>
@@ -229,11 +234,13 @@ export default function HomeScreen({ navigation }) {
                     <Text style={styles.stopName}>{bundle.packages?.[0]?.patient?.firstName} {bundle.packages?.[0]?.patient?.lastName}</Text>
                     <Text style={styles.stopAddr} numberOfLines={1}>{bundle.address}</Text>
                   </View>
-                  <Text style={[styles.stopEta, bundle.status === 'DELIVERED' && { color:'#1D9E75' }]}>
-                    {bundle.status === 'DELIVERED' ? t('done') : bundle.eta ? new Date(bundle.eta).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }) : '--'}
-                  </Text>
+                  {!editMode && (
+                    <Text style={[styles.stopEta, bundle.status === 'DELIVERED' && { color:'#1D9E75' }]}>
+                      {bundle.status === 'DELIVERED' ? t('done') : bundle.eta ? new Date(bundle.eta).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }) : '--'}
+                    </Text>
+                  )}
                 </TouchableOpacity>
-                {canMove && (
+                {editMode && canMove && (
                   <View style={{flexDirection:'column',marginLeft:4}}>
                     <TouchableOpacity disabled={isFirst || reordering} style={[styles.arrowBtn, isFirst && styles.arrowBtnDisabled]} onPress={() => moveStop(bundle.id, 'up')}>
                       <Text style={styles.arrowText}>▲</Text>
@@ -243,13 +250,13 @@ export default function HomeScreen({ navigation }) {
                     </TouchableOpacity>
                   </View>
                 )}
-                {bundle.status !== "DELIVERED" && (
+                {!editMode && bundle.status !== "DELIVERED" && (
                   <TouchableOpacity style={{backgroundColor:"#1D9E75",borderRadius:6,padding:8,marginLeft:4,minWidth:44,alignItems:'center'}} onPress={() => { const addr = encodeURIComponent(bundle.address || ""); const {Linking, Platform} = require("react-native"); Platform.OS === "android" ? Linking.openURL("geo:0,0?q=" + addr).catch(() => Linking.openURL("https://www.google.com/maps/dir/?api=1&destination=" + addr)) : Linking.openURL("maps://?daddr=" + addr).catch(() => Linking.openURL("https://www.google.com/maps/dir/?api=1&destination=" + addr)); }}>
                     <Text style={{color:"#fff",fontSize:12,fontWeight:"600"}}>Nav</Text>
                   </TouchableOpacity>
                 )}
               </View>
-              {bundle.status !== "DELIVERED" && (
+              {editMode && bundle.status !== "DELIVERED" && (
                 <View style={{flexDirection:'row',marginTop:8,gap:8}}>
                   {!bundle.urgent ? (
                     <TouchableOpacity style={styles.urgentBtn} onPress={() => setUrgentModal(bundle)}>

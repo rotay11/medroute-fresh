@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, ActivityIndicator, Alert, Image } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
+import { Platform } from 'react-native';
 import api from '../config/api';
 
 export default function ManifestCaptureScreen({ rxId, onSuccess, onCancel }) {
@@ -18,14 +20,31 @@ export default function ManifestCaptureScreen({ rxId, onSuccess, onCancel }) {
 
   async function handleTakePhoto() {
     const result = await ImagePicker.launchCameraAsync({
-      base64: true,
-      quality: 0.8,
+      base64: false,
+      quality: 0.7,
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
     });
     if (!result.canceled && result.assets[0]) {
-      setImageUri(result.assets[0].uri);
-      setImageBase64(result.assets[0].base64);
-      await parseManifest(result.assets[0].base64);
+      let processedUri = result.assets[0].uri;
+      let processedBase64 = result.assets[0].base64;
+      
+      // Resize and compress for iOS to prevent upload timeout
+      try {
+        const manipResult = await ImageManipulator.manipulateAsync(
+          result.assets[0].uri,
+          [{ resize: { width: 1500 } }],
+          { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+        );
+        processedUri = manipResult.uri;
+        processedBase64 = manipResult.base64;
+        console.log('Image resized for upload');
+      } catch (resizeErr) {
+        console.log('Resize failed, using original:', resizeErr.message);
+      }
+      
+      setImageUri(processedUri);
+      setImageBase64(processedBase64);
+      await parseManifest(processedBase64);
     }
   }
 

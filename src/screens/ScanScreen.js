@@ -181,9 +181,40 @@ export default function ScanScreen({ navigation, route }) {
           <Text style={styles.navMapBtnText}>Navigate to delivery address</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.confirmBtn, !allScanned && styles.confirmBtnDisabled]}
-          disabled={!allScanned}
-          onPress={() => navigation.navigate('Delivery', { bundle, scannedItems })}
+          style={styles.confirmBtn}
+          onPress={() => {
+            // Check for controlled substances that require scanning
+            const controlledPackages = bundle?.packages?.filter(p => 
+              p.rxId && (p.rxId.startsWith('2') || p.rxId.startsWith('4'))
+            ) || [];
+            const unscannedControlled = controlledPackages.filter(p => 
+              !scannedItems.some(s => s.rxId === p.rxId)
+            );
+            
+            if (unscannedControlled.length > 0) {
+              Alert.alert(
+                'Controlled Substance Scan Required',
+                'You must scan ' + unscannedControlled.length + ' controlled substance(s) before completing delivery. RX: ' + unscannedControlled.map(p => p.rxId).join(', '),
+                [{ text: 'OK' }]
+              );
+              return;
+            }
+            
+            // For non-controlled, allow proceed with optional warning if not all scanned
+            const totalUnscanned = (bundle?.packages?.length || 0) - scannedItems.length;
+            if (totalUnscanned > 0) {
+              Alert.alert(
+                'Proceed without scanning?',
+                totalUnscanned + ' item(s) not scanned. Proceed to delivery confirmation?',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Proceed', onPress: () => navigation.navigate('Delivery', { bundle, scannedItems }) }
+                ]
+              );
+            } else {
+              navigation.navigate('Delivery', { bundle, scannedItems });
+            }
+          }}
         >
           <Text style={styles.confirmBtnText}>Confirm and deliver</Text>
         </TouchableOpacity>

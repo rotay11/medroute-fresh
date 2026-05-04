@@ -128,9 +128,12 @@ export default function DeliveryScreen({ navigation, route }) {
           <View style={styles.sigModalHeader}>
             <TouchableOpacity onPress={() => setShowSignature(false)}><Text style={styles.sigModalCancel}>Cancel</Text></TouchableOpacity>
             <Text style={styles.sigModalTitle}>Sign here</Text>
-            <View style={{width:60}} />
+            <View style={{flexDirection:'row', gap:8}}>
+              <TouchableOpacity onPress={() => sigRef.current?.clearSignature()} style={styles.sigClearBtn}><Text style={styles.sigClearBtnText}>Clear</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => sigRef.current?.readSignature()} style={styles.sigSaveBtn}><Text style={styles.sigSaveBtnText}>Save</Text></TouchableOpacity>
+            </View>
           </View>
-          <SignatureScreen ref={sigRef} onOK={handleSignatureOK} descriptionText="Sign with your finger above the line" clearText="Clear" confirmText="Save" />
+          <SignatureScreen ref={sigRef} onOK={handleSignatureOK} webStyle={".m-signature-pad--footer {display: none;} body,html { width: 100%; height: 100%; }"} />
         </View>
       </Modal>
       <Modal visible={showRefusalModal} transparent animationType="fade">
@@ -201,4 +204,8 @@ const styles = StyleSheet.create({
   modalBtnRow: { flexDirection:'row', gap:8, marginTop:16 },
   modalCancelBtn: { flex:1, padding:12, borderRadius:6, borderWidth:1, borderColor:'#ddd', alignItems:'center' },
   modalSubmitBtn: { flex:1, padding:12, borderRadius:6, backgroundColor:'#E24B4A', alignItems:'center' },
+  sigClearBtn: { backgroundColor:'#888', padding:8, borderRadius:6, paddingHorizontal:12 },
+  sigClearBtnText: { color:'#fff', fontSize:13, fontWeight:'600' },
+  sigSaveBtn: { backgroundColor:'#1D9E75', padding:8, borderRadius:6, paddingHorizontal:14 },
+  sigSaveBtnText: { color:'#fff', fontSize:13, fontWeight:'700' },
 });

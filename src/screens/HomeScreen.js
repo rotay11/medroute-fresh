@@ -226,7 +226,7 @@ export default function HomeScreen({ navigation }) {
                 </View>
               )}
               <View style={{flexDirection:'row',alignItems:'center'}}>
-                <TouchableOpacity style={{flexDirection:"row",flex:1,alignItems:"center"}} onPress={() => !editMode && navigation.navigate("Scan", { bundle })}>
+                <TouchableOpacity style={{flexDirection:"row",flex:1,alignItems:"center"}} onPress={() => !editMode && navigation.navigate("Scan", { bundle, mode: "delivery" })}>
                   <View style={[styles.stopNum, bundle.status === 'DELIVERED' && styles.stopNumDone, bundle.urgent && styles.stopNumUrgent]}>
                     <Text style={styles.stopNumText}>{bundle.status === 'DELIVERED' ? '✓' : bundle.stopOrder}</Text>
                   </View>

@@ -9,6 +9,8 @@ import ManifestCaptureScreen from './ManifestCaptureScreen';
 export default function ScanScreen({ navigation, route }) {
   const { t } = useTranslation();
   const bundle = route.params?.bundle;
+  const mode = route.params?.mode || 'pickup';
+  const isDeliveryMode = mode === 'delivery';
   const [permission, requestPermission] = useCameraPermissions();
   const [scannedItems, setScannedItems] = useState([]);
   const [scanning, setScanning] = useState(true);
@@ -43,7 +45,7 @@ export default function ScanScreen({ navigation, route }) {
     try {
       const { data } = await api.post('/api/scan', {
         rxId: rxId.toUpperCase(),
-        scanType: 'PICKUP',
+        scanType: isDeliveryMode ? 'DELIVERY' : 'PICKUP',
         gpsLat: gpsCoords.lat,
         gpsLng: gpsCoords.lng,
       });
@@ -62,9 +64,13 @@ export default function ScanScreen({ navigation, route }) {
       Vibration.vibrate([100, 100, 100]);
       const code = err.response?.data?.code;
       if (code === 'ITEM_NOT_ON_MANIFEST') {
-        setUnknownRxId(rxId);
-        setShowManifestCapture(true);
-        setFlashMsg({ type: 'error', text: 'New patient — photograph manifest' });
+        if (isDeliveryMode) {
+          setFlashMsg({ type: 'error', text: 'This package is not part of this delivery' });
+        } else {
+          setUnknownRxId(rxId);
+          setShowManifestCapture(true);
+          setFlashMsg({ type: 'error', text: 'New patient — photograph manifest' });
+        }
       } else {
         const msg = code === 'ALREADY_SCANNED' ? 'Already scanned'
           : code === 'WRONG_DRIVER' ? 'Wrong driver'
@@ -104,8 +110,8 @@ export default function ScanScreen({ navigation, route }) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Text style={styles.backText}>Back</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>Scan each medication</Text>
-        <Text style={styles.subtitle}>All items must be scanned before delivery</Text>
+        <Text style={styles.title}>{isDeliveryMode ? 'Verify Delivery' : 'Scan each medication'}</Text>
+        <Text style={styles.subtitle}>{isDeliveryMode ? 'Scan packages to verify or proceed to confirm' : 'All items must be scanned before delivery'}</Text>
       </View>
       <View style={styles.viewfinder}>
         {permission?.granted ? (
@@ -132,7 +138,7 @@ export default function ScanScreen({ navigation, route }) {
       <View style={styles.body}>
         <View style={styles.progressBox}>
           <View style={styles.progressTop}>
-            <Text style={styles.progressLabel}>Pickup progress</Text>
+            <Text style={styles.progressLabel}>{isDeliveryMode ? 'Delivery verification' : 'Pickup progress'}</Text>
             <Text style={styles.progressCount}>{scannedCount} / {total}</Text>
           </View>
           <View style={styles.progressBg}>

@@ -65,7 +65,7 @@ export default function ScanScreen({ navigation, route }) {
       const code = err.response?.data?.code;
       if (code === 'ITEM_NOT_ON_MANIFEST') {
         if (isDeliveryMode) {
-          setFlashMsg({ type: 'error', text: 'This package is not part of this delivery' });
+          setFlashMsg({ type: 'error', text: 'Not in delivery: ' + rxId });
         } else {
           setUnknownRxId(rxId);
           setShowManifestCapture(true);

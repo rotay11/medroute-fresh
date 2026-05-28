@@ -71,23 +71,41 @@ export default function DeliveryScreen({ navigation, route }) {
       return;
     }
     setLoading(true);
-    try {
-      const payload = {
-        bundleId: bundle.id,
-        gpsLat: gpsCoords.lat, gpsLng: gpsCoords.lng,
-        scannedRxIds: scanned.map(p => p.rxId),
-        recipientName: recipientName || null,
-        signatureBase64: signatureData,
-        photoBase64: photoData?.base64 || null,
-        refused: refused,
-        refusedReason: refused ? refusedReason : null,
-      };
-      const { data } = await api.post('/api/delivery', payload);
-      navigation.navigate('Success', { delivery: data });
-    } catch (err) {
-      console.log('Delivery error:', err.response?.data);
-      Alert.alert('Error', err.response?.data?.error || 'Could not complete delivery');
-    } finally { setLoading(false); }
+    const payload = {
+      bundleId: bundle.id,
+      gpsLat: gpsCoords.lat, gpsLng: gpsCoords.lng,
+      scannedRxIds: scanned.map(p => p.rxId),
+      recipientName: recipientName || null,
+      signatureBase64: signatureData,
+      photoBase64: photoData?.base64 || null,
+      refused: refused,
+      refusedReason: refused ? refusedReason : null,
+    };
+    // Auto-retry up to 3 times for connection blips
+    let lastError = null;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const { data } = await api.post('/api/delivery', payload);
+        setLoading(false);
+        navigation.navigate('Success', { delivery: data });
+        return;
+      } catch (err) {
+        lastError = err;
+        const code = err.response?.data?.code;
+        const status = err.response?.status;
+        // Retry on connection errors (503 RETRY) or network errors (no response)
+        const shouldRetry = code === 'RETRY' || status === 503 || !err.response;
+        if (shouldRetry && attempt < 3) {
+          console.log('Delivery attempt ' + attempt + ' failed, retrying...');
+          await new Promise(resolve => setTimeout(resolve, attempt * 800));
+          continue;
+        }
+        break;
+      }
+    }
+    setLoading(false);
+    console.log('Delivery error:', lastError?.response?.data);
+    Alert.alert('Error', lastError?.response?.data?.error || 'Could not complete delivery. Please check connection and try again.');
   }
 
   return (
@@ -140,7 +158,7 @@ export default function DeliveryScreen({ navigation, route }) {
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Refusal Reason</Text>
-            {['Patient not home', 'Wrong address', 'Patient declined', 'Returning to pharmacy', 'Damaged package', 'Other'].map(reason => (
+            {['Patient not home', 'Wrong address', 'Patient declined', 'Patient deceased', 'Returning to pharmacy', 'Damaged package', 'Other'].map(reason => (
               <TouchableOpacity key={reason} style={[styles.reasonBtn, refusedReason === reason && styles.reasonBtnSelected]} onPress={() => setRefusedReason(reason)}>
                 <Text style={styles.reasonBtnText}>{reason}</Text>
               </TouchableOpacity>

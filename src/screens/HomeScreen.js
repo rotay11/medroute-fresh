@@ -4,11 +4,13 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../config/api';
+import { stopGPSTracking, startGPSTracking } from '../services/gpsService';
 
 export default function HomeScreen({ navigation }) {
   const { t } = useTranslation();
   const { driver, logout } = useAuth();
   const [route,      setRoute]      = useState([]);
+  const [trackingActive, setTrackingActive] = useState(true);
   const [loading,    setLoading]    = useState(false);
   const [sortMode,   setSortMode]   = useState('default');
   const [startPoint, setStartPoint] = useState({ lat: 37.6879, lng: -122.0561 });
@@ -128,7 +130,40 @@ export default function HomeScreen({ navigation }) {
     setReordering(false);
   }
 
+  async function handleToggleRoute() {
+    if (trackingActive) {
+      // End route - stop tracking
+      Alert.alert(
+        t('endRoute'),
+        t('endRouteConfirm'),
+        [
+          { text: t('cancel') || 'Cancel', style: 'cancel' },
+          { text: t('endRoute'), style: 'destructive', onPress: async () => {
+            stopGPSTracking();
+            setTrackingActive(false);
+            await api.post('/api/driver/end-route', {}).catch(() => {});
+          }}
+        ]
+      );
+    } else {
+      // Resume route - restart tracking
+      Alert.alert(
+        t('resumeRoute'),
+        t('resumeRouteConfirm'),
+        [
+          { text: t('cancel') || 'Cancel', style: 'cancel' },
+          { text: t('resumeRoute'), onPress: async () => {
+            startGPSTracking();
+            setTrackingActive(true);
+            await api.post('/api/driver/resume-route', {}).catch(() => {});
+          }}
+        ]
+      );
+    }
+  }
+
   const completed = route.filter(b => b.status === 'DELIVERED').length;
+  const allDelivered = route.length > 0 && completed === route.length;
 
   return (
     <ScrollView style={styles.container} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#1D9E75" />}>
@@ -150,6 +185,12 @@ export default function HomeScreen({ navigation }) {
           <Text style={styles.driverGreeting}>Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'},</Text>
           <Text style={styles.driverNameLarge}>{driver?.firstName} {driver?.lastName}</Text>
           <Text style={styles.driverZone}>{driver?.zone || 'No zone assigned'}</Text>
+          <TouchableOpacity style={[styles.trackToggle, trackingActive ? styles.trackToggleActive : styles.trackTogglePaused]} onPress={handleToggleRoute}>
+            <View style={[styles.trackDot, { backgroundColor: trackingActive ? '#fff' : '#1D9E75' }]} />
+            <Text style={[styles.trackToggleText, { color: trackingActive ? '#fff' : '#1D9E75' }]}>
+              {trackingActive ? t('endRoute') : t('resumeRoute')}
+            </Text>
+          </TouchableOpacity>
         </View>
         {loading && (
           <View style={{backgroundColor:'rgba(29,158,117,0.1)',padding:8,alignItems:'center',flexDirection:'row',justifyContent:'center',gap:8}}>
@@ -188,9 +229,20 @@ export default function HomeScreen({ navigation }) {
             </View>
           </View>
         )}
-        <TouchableOpacity style={styles.scanBtn} onPress={() => navigation.navigate('Scan', { bundle: nextStop })}>
-          <Text style={styles.scanBtnText}>{t('scanMedication')}</Text>
-        </TouchableOpacity>
+        {allDelivered && trackingActive && (
+          <View style={styles.endRouteCard}>
+            <Text style={styles.endRouteTitle}>✓ {t('allComplete')}</Text>
+            <Text style={styles.endRouteSub}>{completed} / {route.length}</Text>
+            <TouchableOpacity style={styles.endRouteBtn} onPress={handleToggleRoute}>
+              <Text style={styles.endRouteBtnText}>{t('endRoute')}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+        {!allDelivered && (
+          <TouchableOpacity style={styles.scanBtn} onPress={() => navigation.navigate('Scan', { bundle: nextStop })}>
+            <Text style={styles.scanBtnText}>{t('scanMedication')}</Text>
+          </TouchableOpacity>
+        )}
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>{t('todayRoute')}</Text>
           <View style={{flexDirection:'row',gap:8,marginBottom:12,alignItems:'center'}}>
@@ -376,6 +428,16 @@ const styles = StyleSheet.create({
   reasonBtn: { padding: 10, borderWidth: 1, borderColor: '#ddd', borderRadius: 6, marginBottom: 6 },
   reasonBtnSelected: { borderColor: '#E24B4A', backgroundColor: '#FFF5F5' },
   reasonBtnText: { fontSize: 13 },
+  trackToggle: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', marginTop: 10, paddingVertical: 7, paddingHorizontal: 14, borderRadius: 20 },
+  trackToggleActive: { backgroundColor: 'rgba(255,255,255,0.25)' },
+  trackTogglePaused: { backgroundColor: '#fff' },
+  trackDot: { width: 8, height: 8, borderRadius: 4, marginRight: 8 },
+  trackToggleText: { fontSize: 12, fontWeight: '700' },
+  endRouteCard: { backgroundColor: '#E1F5EE', borderRadius: 12, padding: 20, marginBottom: 16, alignItems: 'center', borderWidth: 1, borderColor: '#1D9E75' },
+  endRouteTitle: { fontSize: 16, fontWeight: '700', color: '#0C7A55', marginBottom: 4 },
+  endRouteSub: { fontSize: 13, color: '#1D9E75', marginBottom: 14 },
+  endRouteBtn: { backgroundColor: '#1D9E75', borderRadius: 10, paddingVertical: 14, paddingHorizontal: 24, width: '100%', alignItems: 'center' },
+  endRouteBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
   modalInput: { borderWidth: 1, borderColor: '#ddd', borderRadius: 6, padding: 8, fontSize: 14, minHeight: 60 },
   modalBtnRow: { flexDirection: 'row', gap: 8, marginTop: 16 },
   modalCancelBtn: { flex: 1, padding: 12, borderRadius: 6, borderWidth: 1, borderColor: '#ddd', alignItems: 'center' },

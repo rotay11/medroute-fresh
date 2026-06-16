@@ -11,6 +11,8 @@ export default function ScanScreen({ navigation, route }) {
   const bundle = route.params?.bundle;
   const mode = route.params?.mode || 'pickup';
   const isDeliveryMode = mode === 'delivery';
+  const addToBundleId = route.params?.addToBundleId;
+  const addToPatientName = route.params?.addToPatientName;
   const [permission, requestPermission] = useCameraPermissions();
   const [scannedItems, setScannedItems] = useState([]);
   const [scanning, setScanning] = useState(true);
@@ -22,6 +24,12 @@ export default function ScanScreen({ navigation, route }) {
   const [showManifestCapture, setShowManifestCapture] = useState(false);
   const [unknownRxId, setUnknownRxId] = useState(null);
   const [gpsCoords, setGpsCoords] = useState({ lat: 37.6879, lng: -122.0561 });
+
+  useEffect(() => {
+    if (addToBundleId) {
+      setShowManifestCapture(true);
+    }
+  }, [addToBundleId]);
 
   useEffect(() => {
     if (!permission?.granted) requestPermission();
@@ -229,15 +237,18 @@ export default function ScanScreen({ navigation, route }) {
         <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#fff', zIndex: 100 }}>
           <ManifestCaptureScreen
             rxId={unknownRxId}
+            addToBundleId={addToBundleId}
+            addToPatientName={addToPatientName}
             onSuccess={(data) => {
               setShowManifestCapture(false);
               setUnknownRxId(null);
-              setFlashMsg({ type: 'success', text: 'Patient added — delivery created' });
+              setFlashMsg({ type: 'success', text: addToBundleId ? 'Page added to existing delivery' : 'Patient added — delivery created' });
               setTimeout(() => navigation.navigate('Home'), 1500);
             }}
             onCancel={() => {
               setShowManifestCapture(false);
               setUnknownRxId(null);
+              if (addToBundleId) navigation.goBack();
             }}
           />
         </View>

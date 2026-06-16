@@ -76,20 +76,31 @@ export default function HomeScreen({ navigation }) {
 
   // Get sorted route based on sort mode
   const sortedRoute = React.useMemo(() => {
-    if (sortMode === 'default') return route;
-    const undelivered = route.filter(b => b.status !== 'DELIVERED');
-    const delivered = route.filter(b => b.status === 'DELIVERED');
-    // Use driver GPS if available, otherwise pharmacy starting point
-    const origin = driverLoc ? { lat: driverLoc.lat, lng: driverLoc.lng } : startPoint;
-    const withDist = undelivered.map(b => ({
-      ...b,
-      _dist: (b.addressLat && b.addressLng)
-        ? calcDistance(origin.lat, origin.lng, b.addressLat, b.addressLng)
-        : 999
-    }));
-    withDist.sort((a, b) => sortMode === 'nearest' ? a._dist - b._dist : b._dist - a._dist);
-    return [...withDist, ...delivered];
-  }, [route, sortMode, driverLoc, startPoint]);
+    let working;
+    if (sortMode === 'default') {
+      working = route;
+    } else {
+      const undelivered = route.filter(b => b.status !== 'DELIVERED');
+      const delivered = route.filter(b => b.status === 'DELIVERED');
+      // ALWAYS use pharmacy as origin so route order locks once calculated and doesn't shift with driver GPS
+      const origin = startPoint;
+      const withDist = undelivered.map(b => ({
+        ...b,
+        _dist: (b.addressLat && b.addressLng)
+          ? calcDistance(origin.lat, origin.lng, b.addressLat, b.addressLng)
+          : 999
+      }));
+      withDist.sort((a, b) => sortMode === 'nearest' ? a._dist - b._dist : b._dist - a._dist);
+      working = [...withDist, ...delivered];
+    }
+    // Assign display numbers: undelivered get 1,2,3... in current order; delivered show ✓
+    let counter = 0;
+    return working.map(b => {
+      if (b.status === 'DELIVERED') return { ...b, _displayNum: '✓' };
+      counter += 1;
+      return { ...b, _displayNum: counter };
+    });
+  }, [route, sortMode, startPoint]);
 
   const nextStop  = sortedRoute.find(b => b.status !== 'DELIVERED');
 
@@ -116,6 +127,25 @@ export default function HomeScreen({ navigation }) {
       await api.delete('/api/bundle/' + bundleId + '/urgent');
       loadRoute();
     } catch (err) { Alert.alert('Error', 'Could not remove urgent'); }
+  }
+
+  async function deleteStop(bundle) {
+    const patientName = bundle.packages?.[0]?.patient?.firstName + ' ' + (bundle.packages?.[0]?.patient?.lastName || '');
+    Alert.alert(
+      'Delete Delivery',
+      'Remove ' + patientName.trim() + ' from your route?\n\nThis will delete the delivery and its medications.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: async () => {
+          try {
+            await api.delete('/api/bundle/' + bundle.id);
+            load();
+          } catch (err) {
+            Alert.alert('Error', err.response?.data?.error || 'Could not delete delivery');
+          }
+        }}
+      ]
+    );
   }
 
   async function moveStop(bundleId, direction) {
@@ -280,7 +310,7 @@ export default function HomeScreen({ navigation }) {
               <View style={{flexDirection:'row',alignItems:'center'}}>
                 <TouchableOpacity style={{flexDirection:"row",flex:1,alignItems:"center"}} onPress={() => !editMode && navigation.navigate("Scan", { bundle, mode: "delivery" })}>
                   <View style={[styles.stopNum, bundle.status === 'DELIVERED' && styles.stopNumDone, bundle.urgent && styles.stopNumUrgent]}>
-                    <Text style={styles.stopNumText}>{bundle.status === 'DELIVERED' ? '✓' : bundle.stopOrder}</Text>
+                    <Text style={styles.stopNumText}>{bundle._displayNum}</Text>
                   </View>
                   <View style={styles.stopInfo}>
                     <Text style={styles.stopName}>{bundle.packages?.[0]?.patient?.firstName} {bundle.packages?.[0]?.patient?.lastName}</Text>
@@ -319,6 +349,12 @@ export default function HomeScreen({ navigation }) {
                       <Text style={styles.removeUrgentBtnText}>Remove Urgent</Text>
                     </TouchableOpacity>
                   )}
+                  <TouchableOpacity style={styles.deleteStopBtn} onPress={() => deleteStop(bundle)}>
+                    <Text style={styles.deleteStopBtnText}>🗑 Delete</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.addPageStopBtn} onPress={() => navigation.navigate('Scan', { addToBundleId: bundle.id, addToPatientName: (bundle.packages?.[0]?.patient?.firstName || '') + ' ' + (bundle.packages?.[0]?.patient?.lastName || '') })}>
+                    <Text style={styles.addPageStopBtnText}>📄+ Add Page</Text>
+                  </TouchableOpacity>
                 </View>
               )}
             </View>
@@ -418,6 +454,10 @@ const styles = StyleSheet.create({
   arrowBtnDisabled: { opacity: 0.3 },
   arrowText: { fontSize: 10, color: '#333', fontWeight: '700' },
   urgentBtn: { backgroundColor: '#E24B4A', padding: 8, borderRadius: 6, flex: 1, alignItems: 'center' },
+  deleteStopBtn: { backgroundColor: '#fee2e2', borderWidth: 1, borderColor: '#E24B4A', borderRadius: 6, paddingHorizontal: 12, paddingVertical: 8, flexDirection: 'row', alignItems: 'center' },
+  deleteStopBtnText: { color: '#E24B4A', fontSize: 12, fontWeight: '700' },
+  addPageStopBtn: { backgroundColor: '#E1ECFF', borderWidth: 1, borderColor: '#0C447C', borderRadius: 6, paddingHorizontal: 12, paddingVertical: 8 },
+  addPageStopBtnText: { color: '#0C447C', fontSize: 12, fontWeight: '700' },
   urgentBtnText: { color: '#fff', fontSize: 12, fontWeight: '700' },
   removeUrgentBtn: { backgroundColor: '#888', padding: 8, borderRadius: 6, flex: 1, alignItems: 'center' },
   removeUrgentBtnText: { color: '#fff', fontSize: 12, fontWeight: '600' },

@@ -6,7 +6,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import { Platform } from 'react-native';
 import api from '../config/api';
 
-export default function ManifestCaptureScreen({ rxId, onSuccess, onCancel }) {
+export default function ManifestCaptureScreen({ rxId, onSuccess, onCancel, addToBundleId, addToPatientName }) {
   const [permission, requestPermission] = useCameraPermissions();
   const [step, setStep] = useState('capture');
   const [imageUri, setImageUri] = useState(null);
@@ -84,26 +84,37 @@ export default function ManifestCaptureScreen({ rxId, onSuccess, onCancel }) {
   }
 
   async function handleConfirm() {
-    if (!form.firstName || !form.lastName || !form.address) {
-      Alert.alert('Required', 'Please enter patient name and address');
-      return;
-    }
     setLoading(true);
     try {
-      const { data } = await api.post('/api/manifest/create-delivery', {
-        firstName: form.firstName,
-        lastName: form.lastName,
-        address: form.address,
-        phone: form.phone,
-        medications: form.medications && form.medications.length > 0 ? form.medications : [{ rxNumber: rxId, medication: form.medication }],
-        rxNumber: rxId,
-        dob: form.dob || null,
-      });
-      Alert.alert('Success', form.firstName + ' ' + form.lastName + ' added and delivery created', [
-        { text: 'OK', onPress: () => onSuccess(data) }
-      ]);
+      if (addToBundleId) {
+        // ADD-PAGE MODE: skip patient validation, add medications to existing bundle
+        const meds = form.medications && form.medications.length > 0 ? form.medications : [{ rxNumber: rxId, medication: form.medication }];
+        const { data } = await api.post('/api/manifest/add-to-bundle/' + addToBundleId, { medications: meds });
+        Alert.alert('Success', 'Added ' + (data.added || 0) + ' medication(s) to ' + (addToPatientName || 'existing delivery'), [
+          { text: 'OK', onPress: () => onSuccess(data) }
+        ]);
+      } else {
+        // CREATE-DELIVERY MODE: full patient info required
+        if (!form.firstName || !form.lastName || !form.address) {
+          Alert.alert('Required', 'Please enter patient name and address');
+          setLoading(false);
+          return;
+        }
+        const { data } = await api.post('/api/manifest/create-delivery', {
+          firstName: form.firstName,
+          lastName: form.lastName,
+          address: form.address,
+          phone: form.phone,
+          medications: form.medications && form.medications.length > 0 ? form.medications : [{ rxNumber: rxId, medication: form.medication }],
+          rxNumber: rxId,
+          dob: form.dob || null,
+        });
+        Alert.alert('Success', form.firstName + ' ' + form.lastName + ' added and delivery created', [
+          { text: 'OK', onPress: () => onSuccess(data) }
+        ]);
+      }
     } catch (err) {
-      Alert.alert('Error', err.response?.data?.error || 'Could not create delivery');
+      Alert.alert('Error', err.response?.data?.error || 'Could not save delivery');
     }
     setLoading(false);
   }
@@ -112,6 +123,12 @@ export default function ManifestCaptureScreen({ rxId, onSuccess, onCancel }) {
 
   return (
     <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
+      {addToBundleId && (
+        <View style={styles.addPageBanner}>
+          <Text style={styles.addPageBannerTitle}>📄+ Adding page</Text>
+          <Text style={styles.addPageBannerSub}>For: {addToPatientName || 'existing delivery'}</Text>
+        </View>
+      )}
       <View style={styles.header}>
         <TouchableOpacity onPress={onCancel} style={styles.backBtn}>
           <Text style={styles.backText}>← Cancel</Text>
@@ -197,7 +214,7 @@ export default function ManifestCaptureScreen({ rxId, onSuccess, onCancel }) {
               </TouchableOpacity>
             )}
             <TouchableOpacity style={[styles.confirmBtn, loading && { opacity: 0.6 }]} onPress={handleConfirm} disabled={loading}>
-              {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.confirmBtnText}>Confirm and create delivery</Text>}
+              {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.confirmBtnText}>{addToBundleId ? 'Add page to delivery' : 'Confirm and create delivery'}</Text>}
             </TouchableOpacity>
             {step === 'confirm' && (
               <TouchableOpacity style={styles.retakeBtn} onPress={() => { setImageUri(null); setImageBase64(null); setForm({ firstName: '', lastName: '', address: '', phone: '', medication: '', dob: '', medications: [] }); setPageCount(0); setStep('capture'); }}>
@@ -213,6 +230,9 @@ export default function ManifestCaptureScreen({ rxId, onSuccess, onCancel }) {
 
 const styles = StyleSheet.create({
   container:      { flex: 1, backgroundColor: '#fff' },
+  addPageBanner: { backgroundColor: '#E1ECFF', borderLeftWidth: 4, borderLeftColor: '#0C447C', padding: 14, margin: 12, borderRadius: 8 },
+  addPageBannerTitle: { fontSize: 14, fontWeight: '700', color: '#0C447C', marginBottom: 4 },
+  addPageBannerSub: { fontSize: 12, color: '#0C447C' },
   header:         { backgroundColor: '#1D9E75', padding: 16, paddingTop: 56 },
   backBtn:        { marginBottom: 8 },
   backText:       { color: 'rgba(255,255,255,0.85)', fontSize: 13 },
